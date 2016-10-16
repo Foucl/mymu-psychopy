@@ -67,13 +67,15 @@ class MyMu(exp.Experiment):
                                   ('session', 1),
                                   ]),
                  rp=OrderedDict([  # these control how the experiment is run
-                ('no_output', True),  # do you want output? or just playing around?
+                ('no_output', False),  # do you want output? or just playing around?
                 ('debug', True),  # not fullscreen presentation etc
                 ('autorun', 0),  # if >0, will autorun at the specified speed
                 ('happy_triangle_up', True),
                 ('block_order', [1,2,3,4]),
-                ('stream_to_LSL', True),
-                ('stream_name', 'mymu_trigger')
+                ('n_trl_valid', 21),#60
+                ('n_trl_invalid', 7),#20
+                ('stream_to_LSL', False),
+                ('stream_name', 'mymu_dr_2')
                 ]),
                  log_level = logging.WARNING,
                  save_mov = False,
@@ -103,7 +105,7 @@ class MyMu(exp.Experiment):
             self.marker_labels = marker_labels
         else:
             self.marker_labels = ['block', 'validity', 'target_em', 'event', 'trial_no', 'other']
-        self.setup_lsl()
+        
         
         # TODO: more options for testing! (only one stimulus, only one condition ...)
         # TODO: add the two other blocks
@@ -113,7 +115,7 @@ class MyMu(exp.Experiment):
         # TODO: add other input (demographic info etc.)
 
         # user-defined parameters
-        self.n_trl = {'valid': 60, 'invalid': 20}
+        self.n_trl = {'valid': self.rp['n_trl_valid'], 'invalid': self.rp['n_trl_invalid']}
         self.n_trl_pract = {'valid': 6, 'invalid': 2} # just use half of that for the short practice?
         # should scr_fac always get a longer instruction?
         
@@ -192,7 +194,8 @@ class MyMu(exp.Experiment):
         self.ids['female'] = list(set([x[4:8] for x in female]))
 
         #import pdb; pdb.set_trace()
-                
+        self.setup_lsl() 
+        
     def __enter__(self):
         return self # for contextmanager 'with thismu as tm:'
 								
@@ -213,6 +216,7 @@ class MyMu(exp.Experiment):
     def create_stimuli(self):
         """Define your stimuli here, store them in self.s
         """
+        
         testmov = os.path.join(self.test_dir, 'ekl_m_03.mp4') # b/c we can't initialize a MovieStim without a file
         self.testmov = testmov
         #self.set_logging(level=self.log_level
@@ -233,6 +237,10 @@ class MyMu(exp.Experiment):
     def create_win(self, *args, **kwargs):
         super(MyMu, self).create_win(units='deg', colorSpace = 'rgb255', color=[100]*3,
                                       *args, **kwargs)
+        
+    def before_exp(self, *args, **kwargs):
+        #self.setup_lsl()
+        super(MyMu, self).before_exp(*args, **kwargs)
     
     def set_logging(self, *args, **kwargs):
         super(MyMu, self).set_logging(level=self.log_level, *args, **kwargs)
@@ -254,9 +262,9 @@ class MyMu(exp.Experiment):
         trial_ids = {'valid': [], 'invalid': []}
         
         if self.rp['happy_triangle_up']:
-            self.triangle_mapping = {'fre': 'fre_scr_up', 'ekl': 'ekl_scr_up'}
-        else:
             self.triangle_mapping = {'fre': 'fre_scr_up', 'ekl': 'ekl_scr_down'}
+        else:
+            self.triangle_mapping = {'fre': 'fre_scr_down', 'ekl': 'ekl_scr_up'}
         
         
                            
@@ -279,6 +287,7 @@ class MyMu(exp.Experiment):
             if 'scr_fac' in block:
                 basedir = self.triangle_mapping[c['pexpr']]
                 trgl = basedir.split('_')[-1]
+                #import pdb; pdb.set_trace()
             else:
                 basedir = c['pexpr']
             idtmp = trial_ids[c['validity']]
@@ -346,7 +355,7 @@ class MyMu(exp.Experiment):
         if not self.rp['stream_to_LSL']:
             return
         marker_len = len(self.marker_labels)
-        info = pylsl.StreamInfo(self.stream_name, 'Markers', marker_len, 0, 'string', 'myuidw43536')
+        info = pylsl.StreamInfo(self.stream_name, 'Markers', marker_len, 0, 'string', self.info['subjid'])
         #info = pylsl.StreamInfo(self.stream_name, 'Markers', 6, 0, 'string', 'myuidw43536')
         #TODO: add subject ID to stream name!
         channels = info.desc().append_child('channels')
