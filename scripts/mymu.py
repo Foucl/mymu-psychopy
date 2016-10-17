@@ -58,7 +58,7 @@ class MyMu(exp.Experiment):
     Willkommen zu unserem Experiment
     ================================
     
-    Druecken Sie die **Leertaste**, um zu starten.
+    Drücken Sie die **Leertaste**, um zu starten.
     """
     def __init__(self,
                  name='mymu',
@@ -68,24 +68,41 @@ class MyMu(exp.Experiment):
                                   ]),
                  rp=OrderedDict([  # these control how the experiment is run
                 ('no_output', False),  # do you want output? or just playing around?
+                ('unittest', False),
                 ('debug', True),  # not fullscreen presentation etc
                 ('autorun', 0),  # if >0, will autorun at the specified speed
                 ('happy_triangle_up', True),
                 ('block_order', [1,2,3,4]),
                 ('n_trl_valid', 21),#60
                 ('n_trl_invalid', 7),#20
-                ('stream_to_LSL', False),
+                ('stream_to_LSL', True),
                 ('stream_name', 'mymu_dr_2')
                 ]),
                  log_level = logging.WARNING,
                  save_mov = False,
                  marker_labels = None,
                  actions='run',
+                 unittest = False, # I want to be able to set some stuff withoug passing the whole dict
                  #stream_name='mymu_trigger'
                  ):
-        super(MyMu, self).__init__(name=name, info=info,
-                rp=rp, actions=actions,
+        #print "MyMu.__init__() called"
+        #import pdb; pdb.set_trace()
+                  
+        if unittest:
+            rp['unittest'] = True
+                     
+        super(MyMu, self).__init__(name=name, info=info, rp=rp, actions=actions,
                 paths=PATHS, computer=computer, version=version, blockcol='block')
+        
+        #print "exp.Exp.__init__() called)"
+        
+        
+        # strip unicodes from docstring if doing a unittest:
+        
+        if self.rp['unittest']:
+            docstring = self.__doc__
+            docstring =  ''.join([i if ord(i) < 128 else ' ' for i in docstring])
+            setattr(self, '__doc__', docstring)
         
         #TODO: add subject ID to stream name!
         #channels = info.desc().append_child('channels')
@@ -99,13 +116,11 @@ class MyMu(exp.Experiment):
         self.log_level = log_level
         self.logger = logger  
         self.logger.level = log_level
-        self.block_order = [x-1 for x in self.rp['block_order']]
         
         if marker_labels:
             self.marker_labels = marker_labels
         else:
             self.marker_labels = ['block', 'validity', 'target_em', 'event', 'trial_no', 'other']
-        
         
         # TODO: more options for testing! (only one stimulus, only one condition ...)
         # TODO: add the two other blocks
@@ -115,8 +130,7 @@ class MyMu(exp.Experiment):
         # TODO: add other input (demographic info etc.)
 
         # user-defined parameters
-        self.n_trl = {'valid': self.rp['n_trl_valid'], 'invalid': self.rp['n_trl_invalid']}
-        self.n_trl_pract = {'valid': 6, 'invalid': 2} # just use half of that for the short practice?
+        
         # should scr_fac always get a longer instruction?
         
         # self.prop_valid = .75 # allow choice: ninvalid or prop_invalid
@@ -135,66 +149,11 @@ class MyMu(exp.Experiment):
         
 
         
-        factors = OrderedDict({'stim_type': ['em_fac', 'nem_fac_e', 'nem_fac_f', 'scr_fac'], \
-                                   'expression': [['ekl', 'fre'], ['neu', 'ekl'], \
-                                                  ['neu', 'fre'], ['ekl', 'fre']], \
-                                    'validity': ['valid', 'invalid']})
         
-        for factor in factors.keys():
-            if not factor == 'validity':
-                l = factors[factor]
-                if factor == 'stim_type':
-                    l = [str(n) + '_' + l[i] for n, i in enumerate(self.block_order)]
-                factors[factor] = l
-
-        self.factors = factors
-        #import pdb; pdb.set_trace()
-        
-        
-        # TODO: decouple expression from file-finding (for scrambled/triangles!)
-        # TODO: block order as run-time option
-        
-        # construct four blocks
-        self.my_blocks = [(key, []) for key in self.factors['stim_type']]
-        self.my_blocks = OrderedDict(self.my_blocks)
-        blocks = self.factors['stim_type']
-        
-        bl_no = 0
-        for block in blocks:
-            #import pdb; pdb.set_trace()
-            expr = self.factors['expression'][bl_no]
-            self.my_blocks[block] = OrderedDict([
-                ('expressions', expr),
-                ('conditions', [
-                        OrderedDict({'texpr':expr[0], 'validity': 'valid', 'pexpr': expr[0], 'weight': self.n_trl['valid']}),
-                        OrderedDict({'texpr':expr[0], 'validity': 'invalid', 'pexpr': expr[1], 'weight': self.n_trl['invalid']}),
-                        OrderedDict({'texpr':expr[1], 'validity': 'valid', 'pexpr': expr[1], 'weight': self.n_trl['valid']}),
-                        OrderedDict({'texpr':expr[1], 'validity': 'invalid', 'pexpr': expr[0], 'weight': self.n_trl['invalid']})
-                               ])
-                ])
-            bl_no += 1
-                
-        #import pdb; pdb.set_trace()
-        
-        
-        # the following needs to changed so that stimulus type can be parametrized
-        test_dir = os.path.join(self.paths['stim'], 'ekl')
-        self.all_stims =  [x for x in os.listdir(test_dir)]
-        self.test_dir = test_dir
-        
-        male = [x for x in self.all_stims if x.split('_')[1] == 'm']
-        female = [x for x in self.all_stims if x.split('_')[1] == 'w']
-        # happy = [x for x in self.all_stims if x[0:3] == 'fre']
-        # disgusted = [x for x in self.all_stims if x[0:3] == 'ekl']
-        
-        
-        self.ids = {}
-        
-        self.ids['male'] = list(set([x[4:8] for x in male]))
-        self.ids['female'] = list(set([x[4:8] for x in female]))
 
         #import pdb; pdb.set_trace()
-        self.setup_lsl() 
+        #
+         
         
     def __enter__(self):
         return self # for contextmanager 'with thismu as tm:'
@@ -202,6 +161,10 @@ class MyMu(exp.Experiment):
     def __exit__(self, exception_type, exception_val, trace):
         try:
             self.win.close()
+        except:
+            pass
+        try:
+            self.outlet.__del__()
         except:
             pass
         print exception_type, exception_val
@@ -238,9 +201,71 @@ class MyMu(exp.Experiment):
         super(MyMu, self).create_win(units='deg', colorSpace = 'rgb255', color=[100]*3,
                                       *args, **kwargs)
         
+    def setup_blocks(self):
+        self.block_order = [x-1 for x in self.rp['block_order']]
+        factors = OrderedDict({'stim_type': ['em_fac', 'nem_fac_e', 'nem_fac_f', 'scr_fac'], \
+                                   'expression': [['ekl', 'fre'], ['neu', 'ekl'], \
+                                                  ['neu', 'fre'], ['ekl', 'fre']], \
+                                    'validity': ['valid', 'invalid']})
+        
+        for factor in factors.keys():
+            if not factor == 'validity':
+                l = factors[factor]
+                if factor == 'stim_type':
+                    l = [str(n) + '_' + l[i] for n, i in enumerate(self.block_order)]
+                else:
+                    l = [l[i] for i in self.block_order]
+                factors[factor] = l
+
+        self.factors = factors
+        
+        self.n_trl = {'valid': self.rp['n_trl_valid'], 'invalid': self.rp['n_trl_invalid']}
+        self.n_trl_pract = {'valid': 6, 'invalid': 2} # just use half of that for the short practice?     
+        
+        self.my_blocks = [(key, []) for key in self.factors['stim_type']]
+        self.my_blocks = OrderedDict(self.my_blocks)
+        blocks = self.factors['stim_type']
+        
+        bl_no = 0
+        for block in blocks:
+            #import pdb; pdb.set_trace()
+            expr = self.factors['expression'][bl_no]
+            self.my_blocks[block] = OrderedDict([
+                ('expressions', expr),
+                ('conditions', [
+                        OrderedDict({'texpr':expr[0], 'validity': 'valid', 'pexpr': expr[0], 'weight': self.n_trl['valid']}),
+                        OrderedDict({'texpr':expr[0], 'validity': 'invalid', 'pexpr': expr[1], 'weight': self.n_trl['invalid']}),
+                        OrderedDict({'texpr':expr[1], 'validity': 'valid', 'pexpr': expr[1], 'weight': self.n_trl['valid']}),
+                        OrderedDict({'texpr':expr[1], 'validity': 'invalid', 'pexpr': expr[0], 'weight': self.n_trl['invalid']})
+                               ])
+                ])
+            bl_no += 1
+
+        
+        # the following needs to changed so that stimulus type can be parametrized
+        test_dir = os.path.join(self.paths['stim'], 'ekl')
+        self.all_stims =  [x for x in os.listdir(test_dir)]
+        self.test_dir = test_dir
+        
+        male = [x for x in self.all_stims if x.split('_')[1] == 'm']
+        female = [x for x in self.all_stims if x.split('_')[1] == 'w']
+        # happy = [x for x in self.all_stims if x[0:3] == 'fre']
+        # disgusted = [x for x in self.all_stims if x[0:3] == 'ekl']
+        
+        
+        self.ids = {}
+        
+        self.ids['male'] = list(set([x[4:8] for x in male]))
+        self.ids['female'] = list(set([x[4:8] for x in female]))  
+        
     def before_exp(self, *args, **kwargs):
-        #self.setup_lsl()
+        self.setup_blocks()
+        
         super(MyMu, self).before_exp(*args, **kwargs)
+        
+    def setup(self):
+        super(MyMu, self).setup()
+        self.setup_lsl()
     
     def set_logging(self, *args, **kwargs):
         super(MyMu, self).set_logging(level=self.log_level, *args, **kwargs)
@@ -330,9 +355,10 @@ class MyMu(exp.Experiment):
         self.this_trial['real_dur'] = self.trial_clock.getTime()
         super(MyMu, self).post_trial(*args, **kwargs)
         
-        if self.save_mov and self.thisTrialN == 2:
+        if self.save_mov and self.thisTrialN == 6:
             self.save_movie_frames()
-            self.quit(message='movie of first three trials saved, nothing to do anymore')
+            #self.quit(message='movie of first three trials saved, nothing to do anymore')
+            self.win.close()
    
     def save_movie_frames(self, filen='./exp_t1-7.mp4'):
         frames = self.all_movie_frames
@@ -354,6 +380,7 @@ class MyMu(exp.Experiment):
     def setup_lsl(self):
         if not self.rp['stream_to_LSL']:
             return
+        #import pdb; pdb.set_trace()
         marker_len = len(self.marker_labels)
         info = pylsl.StreamInfo(self.stream_name, 'Markers', marker_len, 0, 'string', self.info['subjid'])
         #info = pylsl.StreamInfo(self.stream_name, 'Markers', 6, 0, 'string', 'myuidw43536')
@@ -365,6 +392,7 @@ class MyMu(exp.Experiment):
                 .append_child_value("type", 'Markers')
                 
         self.outlet = pylsl.StreamOutlet(info)
+        self.logger.warning('setup_lsl called. outlet created')
         self.logger.info('created outlet %s with name %s', self.outlet, self.stream_name)
        
     def gen_and_push_marker(self, text=None):
@@ -402,18 +430,21 @@ class MyMu(exp.Experiment):
 
         mov = self.s['mov']
         i = 1
-        while(mov.status != visual.FINISHED):
-            if mov.getCurrentFrameTime() >= 0.9:
-                mov.stop()
-                break
-            mov.draw()
-            self.win.flip()
-            self.last_keypress()
-        return
+        #while(mov.status != visual.FINISHED):
+            #if mov.getCurrentFrameTime() >= 0.9:
+             #   mov.stop()
+              #  break
+            #mov.draw()
+            #self.win.flip()
+            #self.last_keypress()
+        #return
         
         
         
         while(mov.status != visual.FINISHED and mov.status!= visual.STOPPED):
+            if mov.getCurrentFrameTime() >= 0.96:
+                mov.stop()
+                break
             ft = mov.getCurrentFrameTime()
             if i == 3: # we are somewhere during the neutral part of the video
                 if ut:

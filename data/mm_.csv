@@ -1,3 +1,20 @@
 subjid,session,block,trialno,texpr,validity,pexpr,stimf,sex,id,trgl,onset,dur,real_dur,corr_resp,subj_resp,accuracy,rt
 mm_,1,0_scr_fac,34,fre,valid,fre,fre_scr_up/fre_m_46.mp4,m,m_46,up,0.157,5.400,5.243,,,,
 mm_,1,0_scr_fac,27,fre,valid,fre,fre_scr_up/fre_m_20.mp4,m,m_20,up,5.570,5.400,5.230,,,,
+subjid,session,block,trialno,texpr,validity,pexpr,stimf,sex,id,trgl,onset,dur,real_dur,corr_resp,subj_resp,accuracy,rt,autoresp,autort
+mm_,1,0_em_fac,11,ekl,valid,ekl,ekl/ekl_w_56.mp4,w,w_56,,5.823,5.400,1.035,,1,false alarm,1.125,j,1.125
+mm_,1,0_em_fac,9,ekl,valid,ekl,ekl/ekl_m_03.mp4,m,m_03,,115.077,5.400,1.026,,0,false alarm,0.825,f,0.825
+mm_,1,0_em_fac,31,fre,valid,fre,fre/fre_m_09.mp4,m,m_09,,225.690,5.400,1.021,,99,false alarm,0.872,e,0.872
+subjid,session,block,trialno,texpr,validity,pexpr,stimf,sex,id,trgl,onset,dur,real_dur,corr_resp,subj_resp,accuracy,rt,autoresp,autort
+mm_,1,0_em_fac,35,fre,valid,fre,fre/fre_m_15.mp4,m,m_15,,14.549,5.400,1.025,,1,false alarm,1.255,j,1.255
+mm_,1,0_nem_fac_f,20,ekl,valid,ekl,ekl/ekl_w_31.mp4,w,w_31,,0.059,5.400,5.341,,,,
+mm_,1,0_nem_fac_f,51,fre,invalid,ekl,ekl/ekl_w_57.mp4,w,w_57,,5.457,5.400,5.343,,,,
+mm_,1,0_nem_fac_e,5,neu,valid,neu,neu/neu_m_23.mp4,m,m_23,,0.136,5.400,5.264,,,,
+mm_,1,0_nem_fac_e,4,neu,valid,neu,neu/neu_m_07.mp4,m,m_07,,0.060,5.400,5.340,,,,
+mm_,1,0_nem_fac_f,22,neu,invalid,fre,fre/fre_m_33.mp4,m,m_33,,0.058,5.400,5.342,,,,
+mm_,1,0_nem_fac_f,7,neu,valid,neu,neu/neu_m_23.mp4,m,m_23,,5.457,5.400,5.343,,,,
+mm_,1,0_nem_fac_f,6,neu,valid,neu,neu/neu_m_38.mp4,m,m_38,,10.857,5.400,5.343,,,,
+mm_,1,0_nem_fac_f,27,fre,valid,fre,fre/fre_m_21.mp4,m,m_21,,16.269,5.400,5.331,,,,
+mm_,1,0_nem_fac_f,42,fre,valid,fre,fre/fre_w_37.mp4,w,w_37,,21.679,5.400,5.321,,,,
+mm_,1,0_nem_fac_f,23,neu,invalid,fre,fre/fre_m_21.mp4,m,m_21,,27.058,5.400,5.342,,,,
+mm_,1,0_nem_fac_f,40,fre,valid,fre,fre/fre_w_18.mp4,w,w_18,,32.457,5.400,5.343,,,,

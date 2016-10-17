@@ -11,5 +11,5 @@ exp_choices = [
 
 # bring up the graphic user interface or interpret command line inputs
 # usually you can skip the size parameter
+#import pdb; pdb.set_trace()
 ui.Control(exp_choices, title='Demo Project', size=(560,550))
-
