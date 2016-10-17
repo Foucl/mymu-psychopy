@@ -20,6 +20,7 @@ from psychopy import visual, data, core, event, logging
 import psychopy_ext
 reload(psychopy_ext)
 from psychopy_ext import exp
+import copy
 #import logging
 
 import pylsl
@@ -28,7 +29,6 @@ import computer
 #reload(computer)
 reload(exp)
 
-from IPython.core.debugger import Tracer
 dev_logging.basicConfig(level=logging.INFO)
 logger = dev_logging.getLogger('my_logger')
 
@@ -73,12 +73,12 @@ class MyMu(exp.Experiment):
                 ('autorun', 0),  # if >0, will autorun at the specified speed
                 ('happy_triangle_up', True),
                 ('block_order', [1,2,3,4]),
-                ('n_trl_valid', 21),#60
-                ('n_trl_invalid', 7),#20
+                ('n_trl_block', 12),
+                ('prop_valid', 0.75),
                 ('stream_to_LSL', True),
                 ('stream_name', 'mymu_dr_2')
                 ]),
-                 log_level = logging.WARNING,
+                 log_level = logging.DEBUG,
                  save_mov = False,
                  marker_labels = None,
                  actions='run',
@@ -133,8 +133,7 @@ class MyMu(exp.Experiment):
         
         # should scr_fac always get a longer instruction?
         
-        # self.prop_valid = .75 # allow choice: ninvalid or prop_invalid
-        # self.ninvalid = int((1-self.prop_valid)*self.nvalid)
+        
         
         # the following should not be user defined - move to create_exp_plan? make_trials?
         # I think everythin in __init__() will be exposed to the user by the psychopy_ext.gui?
@@ -142,17 +141,20 @@ class MyMu(exp.Experiment):
         
         #self.n_trials = self.nvalid + self.ninvalid
         
-        self.stimsize = (5, 6)  # in deg
+        self.target_size = (5, 6)  # in deg
+        self.mov_size =  (508, 768) #(612,920)
         self.isi = 1.2 # make use of that?
         self.iti = 1.5
         
+        self.to_keep = dir(self)
+        self.to_keep.append('to_keep')
         
-
+                        
+    def delete_everything(self, keep):
+        for var in dir(self):
+            if not (var.startswith('_') or var in keep):
+                delattr(self, var)
         
-        
-
-        #import pdb; pdb.set_trace()
-        #
          
         
     def __enter__(self):
@@ -168,68 +170,27 @@ class MyMu(exp.Experiment):
         except:
             pass
         print exception_type, exception_val
-	
-    def __del__(self):
-	   super(MyMu,self).__del__()
-	   try:
-	       self.win.close()
-	   except:
-		  pass
-		
-    def create_stimuli(self):
-        """Define your stimuli here, store them in self.s
-        """
-        
-        testmov = os.path.join(self.test_dir, 'ekl_m_03.mp4') # b/c we can't initialize a MovieStim without a file
-        self.testmov = testmov
-        #self.set_logging(level=self.log_level
-        self.all_movie_frames = []
-        
-        # --- Stimuli
-        self.create_fixation(size=.3)
-        self.s = {}
-        self.s['fix']= self.fixation
-        self.s['mov'] = visual.MovieStim3(self.win, filename=testmov, name='PrimeVid', noAudio=True, autoLog=True, size=(612,920)) #(511, 768) )
-        self.s['blank'] = visual.ImageStim(self.win, size=(0,0), autoLog=True)
-        self.s['target'] = visual.ImageStim(self.win, size=self.stimsize, name='TargetPic', autoLog=True)
 
-        
-        self.win.setRecordFrameIntervals(False)
-        #self.win.waitBlanking = False
-    
-    def create_win(self, *args, **kwargs):
-        super(MyMu, self).create_win(units='deg', colorSpace = 'rgb255', color=[100]*3,
-                                      *args, **kwargs)
-        
-    def setup_blocks(self):
-        self.block_order = [x-1 for x in self.rp['block_order']]
-        factors = OrderedDict({'stim_type': ['em_fac', 'nem_fac_e', 'nem_fac_f', 'scr_fac'], \
+    def order_blocks(self):
+        block_map = {'stim_type': ['em_fac', 'nem_fac_e', 'nem_fac_f', 'scr_fac'], \
                                    'expression': [['ekl', 'fre'], ['neu', 'ekl'], \
-                                                  ['neu', 'fre'], ['ekl', 'fre']], \
-                                    'validity': ['valid', 'invalid']})
-        
-        for factor in factors.keys():
-            if not factor == 'validity':
-                l = factors[factor]
-                if factor == 'stim_type':
-                    l = [str(n) + '_' + l[i] for n, i in enumerate(self.block_order)]
-                else:
-                    l = [l[i] for i in self.block_order]
-                factors[factor] = l
+                                                  ['neu', 'fre'], ['ekl', 'fre']]}
 
-        self.factors = factors
-        
-        self.n_trl = {'valid': self.rp['n_trl_valid'], 'invalid': self.rp['n_trl_invalid']}
-        self.n_trl_pract = {'valid': 6, 'invalid': 2} # just use half of that for the short practice?     
-        
-        self.my_blocks = [(key, []) for key in self.factors['stim_type']]
+        for factor in block_map.keys():
+            l = block_map[factor]
+            l = [l[i-1] for i in self.rp['block_order']]
+            if factor == 'stim_type':
+                l = [str(i) + '_' + l[i] for i in range(len(l))]
+            block_map[factor] = l
+
+        self.my_blocks = [(key, []) for key in block_map['stim_type']]
         self.my_blocks = OrderedDict(self.my_blocks)
-        blocks = self.factors['stim_type']
-        
-        bl_no = 0
-        for block in blocks:
+        blocks = block_map['stim_type']
+        self.calculate_trial_number()
+  
+        for bl_no, block in enumerate(blocks):
             #import pdb; pdb.set_trace()
-            expr = self.factors['expression'][bl_no]
+            expr = block_map['expression'][bl_no]
             self.my_blocks[block] = OrderedDict([
                 ('expressions', expr),
                 ('conditions', [
@@ -239,39 +200,124 @@ class MyMu(exp.Experiment):
                         OrderedDict({'texpr':expr[1], 'validity': 'invalid', 'pexpr': expr[0], 'weight': self.n_trl['invalid']})
                                ])
                 ])
-            bl_no += 1
-
+           
         
-        # the following needs to changed so that stimulus type can be parametrized
+    def calculate_trial_number(self):
+        #('n_trl_block', 80),
+        #('prop_valid', 0.75),
+        
+        prop_valid = self.rp['prop_valid'] # .75 # allow choice: ninvalid or prop_invalid
+        n_total = self.rp['n_trl_block']
+        n_valid = int(prop_valid*n_total)
+        n_invalid = n_total - n_valid
+        # self.ninvalid = int((1-self.prop_valid)*self.nvalid)
+        self.n_trl = {'valid': n_valid, 'invalid': n_invalid}
+		
+    def create_stimuli(self):
+        """Define your stimuli here, store them in self.s
+        """
+        
         test_dir = os.path.join(self.paths['stim'], 'ekl')
-        self.all_stims =  [x for x in os.listdir(test_dir)]
-        self.test_dir = test_dir
-        
-        male = [x for x in self.all_stims if x.split('_')[1] == 'm']
-        female = [x for x in self.all_stims if x.split('_')[1] == 'w']
-        # happy = [x for x in self.all_stims if x[0:3] == 'fre']
-        # disgusted = [x for x in self.all_stims if x[0:3] == 'ekl']
-        
-        
+        all_stims =  [x for x in os.listdir(test_dir)]
+
+        male = [x for x in all_stims if x.split('_')[1] == 'm']
+        female = [x for x in all_stims if x.split('_')[1] == 'w']
         self.ids = {}
         
         self.ids['male'] = list(set([x[4:8] for x in male]))
-        self.ids['female'] = list(set([x[4:8] for x in female]))  
+        self.ids['female'] = list(set([x[4:8] for x in female]))
+        
+        testmov = os.path.join(test_dir, 'ekl_m_03.mp4') # b/c we can't initialize a MovieStim without a file
+        self.testmov = testmov
+        #self.set_logging(level=self.log_level)
+        self.all_movie_frames = []
+        
+        # --- Stimuli
+        self.create_fixation(size=.3)
+        self.s = {}
+        self.s['fix']= self.fixation
+        self.s['mov'] = visual.MovieStim3(self.win, filename=testmov, name='PrimeVid',
+                            noAudio=True, autoLog=True, size=self.mov_size)#(612,920)) #(511, 768) )
+        self.s['blank'] = visual.ImageStim(self.win, size=(0,0), autoLog=True)
+        self.s['target'] = visual.ImageStim(self.win, size=self.target_size, name='TargetPic', autoLog=True)
+
+        
+        self.win.setRecordFrameIntervals(False)
+        #self.win.waitBlanking = False
+    
+    def create_win(self, *args, **kwargs):
+        super(MyMu, self).create_win(units='deg', colorSpace = 'rgb255', color=[100]*3,
+                                      *args, **kwargs)
+               
+    def run(self):
+        self.delete_everything(self.to_keep)
+        
+        #self
+        try:
+            self.outlet.__del__()
+        except:
+            pass
+        super(MyMu, self).run()
         
     def before_exp(self, *args, **kwargs):
-        self.setup_blocks()
+        #self.setup_blocks()
         
         super(MyMu, self).before_exp(*args, **kwargs)
         
+        
     def setup(self):
+        self.order_blocks()
         super(MyMu, self).setup()
+        #import pdb; pdb.set_trace()
+        
+        
+    def setup_task(self):
+        #import pdb; pdb.set_trace()
+        super(MyMu, self).setup_task()
+        
         self.setup_lsl()
     
     def set_logging(self, *args, **kwargs):
         super(MyMu, self).set_logging(level=self.log_level, *args, **kwargs)
+    
+        
+    def last_keypress(self, *args, **kwargs):
+        keys = super(MyMu, self).last_keypress(*args, **kwargs)
+        if 'p' in keys:
+            try:
+                tg, tt, te = self.play_or_pause('pause')
+            except Exception as e:
+                logger.info('exception raised when trying to pause clock', e)
+            event.waitKeys()
+            try:
+                self.play_or_pause('play', (tg, tt, te))
+            except Exception as e:
+                logger.info('exception raised when trying to continue clock', e)
+        #self.all_keys = []
+        for key in keys:
+            if not self._check_if_in_keylist(key, self.keylist_flat):
+                key.remove(key)
+        return keys
+        
+    
+    def play_or_pause(self, action, stime=(0,0)):
+        if action=='pause':
+            logging.info('paused during trial')
+            tg = self.glob_clock.getTime()
+            tt = self.trial_clock.getTime()
+            te = self.event_clock.getTime()
+            return tg, tt, te
+        else:
+            logging.info('continued after pause')
+            self.glob_clock.reset(-stime[0])
+            self.trial_clock.reset(-stime[1])
+            self.event_clock.reset(-stime[2])
+        
+        
         
         
     def before_block(self, *args, **kwargs):
+        self.real_clock = core.Clock()
         super(MyMu, self).before_block(text=None, auto=0, wait=0.5, wait_stim=None)
         self.gen_and_push_marker('block_start')
         #self.fixation.draw(self.win)
@@ -290,8 +336,6 @@ class MyMu(exp.Experiment):
             self.triangle_mapping = {'fre': 'fre_scr_up', 'ekl': 'ekl_scr_down'}
         else:
             self.triangle_mapping = {'fre': 'fre_scr_down', 'ekl': 'ekl_scr_up'}
-        
-        
                            
         # 1. Fill up ids for valid and invalid conditions:
         for con in self.n_trl:
@@ -302,11 +346,9 @@ class MyMu(exp.Experiment):
                     trial_ids[con].extend(list(rnd.choice(ids[sex], n_target, False)))
                 else:
                     diff = n_target - n_avail
-                    trial_ids[con].extend(ids[sex] + list(rnd.choice(ids[sex], diff, True)))
-         
-        #for expr in this_block['expressions']:
-            
-    
+                    trial_ids[con].extend(ids[sex] + list(rnd.choice(ids[sex], diff, True)))           
+                    
+        # 2. generate a trial_list with filenames
         for c in this_block['conditions']:
             trgl = None
             if 'scr_fac' in block:
@@ -337,14 +379,16 @@ class MyMu(exp.Experiment):
     
     # overwrite at least idle_event for movie-creation
     def before_event(self, *args, **kwargs):
+        tt = self.this_trial
+        tn = self.thisTrialN
+        te = self.this_event
         if self.event_no == 0:
-            sys.stdout.write('\rtrial %s\r\n' % (self.thisTrialN+1))
-            #sys.stdout.write('\r\n')
+            txt = '\rtrial %s: %s (%s)\r\n' % (tn+1, tt['pexpr'], tt['validity'])
+            sys.stdout.write(txt)
             sys.stdout.flush()
-            pass
-        if not self.this_event.name == 'prime':
+        if not te.name == 'prime':
             super(MyMu, self).before_event(*args, **kwargs)
-        if self.this_event.name in ['prime', 'target']:
+        if te.name in ['prime', 'target']:
             self.gen_and_push_marker()
         if self.save_mov:
             #self.win.getMovieFrame(buffer='front')
@@ -352,8 +396,9 @@ class MyMu(exp.Experiment):
     
             
     def post_trial(self, *args, **kwargs):
-        self.this_trial['real_dur'] = self.trial_clock.getTime()
-        super(MyMu, self).post_trial(*args, **kwargs)
+        self.this_trial['real_dur'] = self.real_clock.getTime()  
+        self.this_trial['subj_resp'] = ''
+        self.this_trial['rt'] = ''
         
         if self.save_mov and self.thisTrialN == 6:
             self.save_movie_frames()
@@ -385,15 +430,16 @@ class MyMu(exp.Experiment):
         info = pylsl.StreamInfo(self.stream_name, 'Markers', marker_len, 0, 'string', self.info['subjid'])
         #info = pylsl.StreamInfo(self.stream_name, 'Markers', 6, 0, 'string', 'myuidw43536')
         #TODO: add subject ID to stream name!
-        channels = info.desc().append_child('channels')
-        for c in self.marker_labels:
-            channels.append_child("channel") \
-                .append_child_value("label", c) \
-                .append_child_value("type", 'Markers')
-                
-        self.outlet = pylsl.StreamOutlet(info)
-        self.logger.warning('setup_lsl called. outlet created')
-        self.logger.info('created outlet %s with name %s', self.outlet, self.stream_name)
+        #channels = info.desc().append_child('channels')
+        #for c in self.marker_labels:
+            #channels.append_child("channel") \
+                #.append_child_value("label", c) \
+                #.append_child_value("type", 'Markers')
+        info = pylsl.StreamInfo('my_stream33', 'Markers', 6, 0, 'string', 'my_id')
+
+        self.outlet = pylsl.StreamOutlet(info)       
+        #self.outlet = pylsl.StreamOutlet(info)
+        #self.logger.info('created outlet %s with name %s', self.outlet, self.stream_name)
        
     def gen_and_push_marker(self, text=None):
         if not self.rp['stream_to_LSL']:
@@ -438,9 +484,7 @@ class MyMu(exp.Experiment):
             #self.win.flip()
             #self.last_keypress()
         #return
-        
-        
-        
+
         while(mov.status != visual.FINISHED and mov.status!= visual.STOPPED):
             if mov.getCurrentFrameTime() >= 0.96:
                 mov.stop()
@@ -491,8 +535,7 @@ class MyMu(exp.Experiment):
                                 name='target',
                                 dur=1.300,
                                 display=self.s['target'],
-                                #draw_stim=False,
-                                func=self.target_event), # override idle_event for trigger sending (and data receiving??)
+                                func=self.idle_event), # override idle_event for trigger sending (and data receiving??)
                       exp.Event(self,
                                 name='iti',
                                 dur=self.iti,
@@ -500,16 +543,14 @@ class MyMu(exp.Experiment):
                                 func=self.idle_event)] 
                                 
     def target_event(self, *args, **kwargs):
-        self.before_event() # draws the target stimulus
+        return super(MyMu, self).idle_event(*args, **kwargs) # maybe completely drop the parent method?
+        #self.before_event() # draws the target stimulus
         # start the listener and extract time and amplitude of maxima
         # listener should be similar to self.wait() and return those two properties
-        
-        
         #print marker_str
-        #super(MyMu, self).idle_event(*args, **kwargs) # maybe completely drop the parent method?
         # call 
-        event_keys = self.wait()
-        return event_keys
+        #event_keys = self.wait()
+        #return event_keys
                   
     def create_exp_plan(self):
         """Put together trials
@@ -562,24 +603,37 @@ class MyMu(exp.Experiment):
         self.s['target'].setImage(os.path.join(self.paths['img'], tt['validity'] + '_ArialBlack_740.png'))
     
         self.gen_and_push_marker('trl_beg')
+        self.real_clock.reset()
         #image='./img/invalid_ArialBlack_740.png',
         # with textstim: self.s['target'].text = self.this_trial['validity']
         # or if-else
         # but check for pyglet memory leak, imagestim might still be better!
         
         
-class _exp(exp.Task):
+class _Exp(exp.Task):
     # should take the block as argument?
+    
     pass
         
-class _pract(_exp):
+class _Pract(_Exp): 
+    
+    def __init__(self, parent,
+                 name='MyMu_Practice',
+                 version='0.01',
+                 method='sequential',
+                 data_fname=None,
+                 blockcol='block'):
+        #datafile = copy.copy(parent.datafile)
+        #datafile.writeable = False
+    
+        super(_Pract, self).__init__(parent, name, version, method, data_fname, blockcol)
+        self.datafile = copy.copy(parent.datafile)
+        self.datafile.writeable=False
+# no, just roll your own run_exp/run_block methods!
     # inherit from _exp, just with different settings?
     # -> how to keep track of trials here?
     # make option: long vs short practice (first vs other blocks)
     # also handle instruction presentation here
-    pass
-
-    
 
 #thismu = MyMu(rp={'no_output': False, 'unittest': True, 'debug': True, 'autorun': 0, 'happy_triangle_up': True, 
  #                'block_order': [4,3,2,1], 'stream_to_LSL': True,'stream_name': 'trigger'}, log_level=logging.DEBUG,
