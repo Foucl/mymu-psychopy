@@ -4,7 +4,8 @@ from psychopy_ext import ui
 
 __author__ = "Christopher Dannheim"
 __version__ = "0.1"
-__name__ = 'test'
+__name__ = 'MyMu'
+
 exp_choices = [
     ui.Choices('scripts.mymu', name='Mymu', alias='mymu'),
     ]

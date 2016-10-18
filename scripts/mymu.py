@@ -20,10 +20,14 @@ from psychopy import visual, data, core, event, logging
 import psychopy_ext
 reload(psychopy_ext)
 from psychopy_ext import exp
+import threading
+import Queue
 import copy
 #import logging
 
 import pylsl
+
+from ThreadingSkeleton import ThreadingSkeleton
 
 import computer
 #reload(computer)
@@ -76,7 +80,7 @@ class MyMu(exp.Experiment):
                 ('n_trl_block', 12),
                 ('prop_valid', 0.75),
                 ('stream_to_LSL', True),
-                ('stream_name', 'mymu_dr_2')
+                ('stream_name', 'mymu_dr_9991')
                 ]),
                  log_level = logging.DEBUG,
                  save_mov = False,
@@ -145,7 +149,7 @@ class MyMu(exp.Experiment):
         self.mov_size =  (508, 768) #(612,920)
         self.isi = 1.2 # make use of that?
         self.iti = 1.5
-        
+        self.setup_lsl()
         self.to_keep = dir(self)
         self.to_keep.append('to_keep')
         
@@ -275,7 +279,7 @@ class MyMu(exp.Experiment):
         #import pdb; pdb.set_trace()
         super(MyMu, self).setup_task()
         
-        self.setup_lsl()
+        
     
     def set_logging(self, *args, **kwargs):
         super(MyMu, self).set_logging(level=self.log_level, *args, **kwargs)
@@ -427,6 +431,9 @@ class MyMu(exp.Experiment):
             return
         #import pdb; pdb.set_trace()
         marker_len = len(self.marker_labels)
+        self.sender = MarkerSender(self.stream_name, self.info['subjid'], self.marker_labels)
+        self.sender.start()
+        return
         info = pylsl.StreamInfo(self.stream_name, 'Markers', marker_len, 0, 'string', self.info['subjid'])
         #info = pylsl.StreamInfo(self.stream_name, 'Markers', 6, 0, 'string', 'myuidw43536')
         #TODO: add subject ID to stream name!
@@ -465,7 +472,8 @@ class MyMu(exp.Experiment):
         self.this_marker_l = [str(x) for x in marker_l]
         #self.logger.level = 10
         self.logger.debug('sent marker %s', self.this_marker_l)
-        self.outlet.push_sample(self.this_marker_l)
+        self.sender.cmd_q.put(self.this_marker_l)
+        #self.outlet.push_sample(self.this_marker_l)
 
 
     def play_mov(self, *args, **kwargs):
@@ -609,6 +617,50 @@ class MyMu(exp.Experiment):
         # or if-else
         # but check for pyglet memory leak, imagestim might still be better!
         
+
+class MarkerSender(ThreadingSkeleton):
+    
+    def __init__(self, stream_name='sn', stream_id='sid', marker_labels=['one']):
+        super(MarkerSender, self).__init__(name='marker-sender-class')
+        self.stream_name = stream_name
+        self.stream_id = stream_id
+        self.marker_labels = marker_labels
+        self.outlet = None
+        
+    def setup_lsl(self):
+        #import pdb; pdb.set_trace()
+        marker_len = len(self.marker_labels)
+        info = pylsl.StreamInfo(self.stream_name, 'Markers', marker_len, 0, 'string', self.stream_id)#self.info['subjid'])
+        #info = pylsl.StreamInfo(self.stream_name, 'Markers', 6, 0, 'string', 'myuidw43536')
+        #TODO: add subject ID to stream name!
+        channels = info.desc().append_child('channels')
+        for c in self.marker_labels:
+            channels.append_child("channel") \
+                .append_child_value("label", c) \
+                .append_child_value("type", 'Markers')
+        #info = pylsl.StreamInfo('my_stream33', 'Markers', 6, 0, 'string', 'my_id')
+
+        self.outlet = pylsl.StreamOutlet(info)       
+        logger.info('created outlet %s with name %s', self.outlet, self.stream_name)
+        
+    def run(self):
+        logger.setLevel(logging.INFO)
+        logger.info('Starting MarkerSender Thread')
+        if not self.outlet:
+            self.setup_lsl()
+        marker = ['']
+        while self.alive.is_set():
+            try:
+                marker = self.cmd_q.get(True, 0.1)
+                self.outlet.push_sample(marker)
+            except Queue.Empty as e:
+                continue
+            except Exception as e:
+                logger.warning("Couldn't push the marker %s, Error: %s", marker, e)
+            
+        
+
+
         
 class _Exp(exp.Task):
     # should take the block as argument?

@@ -1,0 +1,2 @@
+subjid,session,block,trialno,texpr,validity,pexpr,stimf,sex,id,trgl,onset,dur,real_dur,corr_resp,subj_resp,accuracy,rt
+mm_dr_2,1,0_em_fac,18,fre,valid,fre,fre/fre_w_31.mp4,w,w_31,,0.092,5.400,5.308,,,,
